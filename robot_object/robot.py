@@ -33,8 +33,8 @@ class Robot:
 
         self.y_direction    = 1
         self.y_speed        = 0.5
-        self.x_max_distance = kwargs.get('x_max_distance', 5)
-        self.y_max_distance = kwargs.get('x_max_distance', 2)
+        self.x_max_distance = kwargs.get('x_max_distance', 7)
+        self.y_max_distance = kwargs.get('x_max_distance', 1.5)
 
         self.state       = Etat.INIT
         self.state_slide = EtatSlide.OFF
@@ -58,13 +58,14 @@ class Robot:
         ep_sensor.sub_distance(freq=20, callback=self.sub_data_handler)
         ep_chassis.sub_position(freq=10, callback=self.sub_position_handler)
         time.sleep(3)
-        self.move_distance(y=1, speed=1)
+        self.move_distance(y=0.7, speed=1)
 
     def close(self):
         """
         Close the robot object
         """
         self.move_speed(x=0, y=0)
+        time.sleep(5)
         self.ep_robot.close()
         print("Robot closed")
 
@@ -111,8 +112,8 @@ class Robot:
         timeout = kwargs.get('timeout', 0)
         if not isinstance(timeout, (int, float)):
             raise TypeError(f"timeout must be an int or a float, not {type(timeout)}")
-        self.state = Etat.FORWARD
-        self.state_slide = EtatSlide.OFF
+        #self.state = Etat.FORWARD
+        #self.state_slide = EtatSlide.OFF
 
         ep_chassis = self.ep_robot.chassis
         ep_chassis.drive_speed(x=x, y=y, z=z, timeout=timeout)
@@ -158,20 +159,25 @@ class Robot:
     # Manage position
     #
     def sub_position_handler(self, position_info):
-        print("Position", position_info)
+        #print("Position", position_info)
         self.x_pos, self.y_pos, self.z_pos = position_info
-        self.y_direction = -self.y_direction
-        if self.x_pos >= 7:
+
+        print("y_pos: ", abs(self.y_pos), "state: ", self.state, "state_slide: ",self.state_slide)
+
+
+        if self.state == Etat.FORWARD and abs(self.x_pos) >= self.x_max_distance:
             self.close()
         if self.state == Etat.SLIDE:
-            if self.state_slide != EtatSlide.EXTREME_RIGHT and abs(self.y_pos) >= 1.5:
+            if self.state_slide != EtatSlide.EXTREME_RIGHT and abs(self.y_pos) >= (self.y_max_distance-0.2):
                 print("EXTREME DROITE")
                 self.state_slide = EtatSlide.EXTREME_RIGHT
+                self.y_direction = - self.y_direction
                 self.slideObstacle()
 
-            elif self.state_slide != EtatSlide.EXTREME_LEFT and abs(self.y_pos) <= 0.5:
+            elif self.state_slide != EtatSlide.EXTREME_LEFT and abs(self.y_pos) <= 0.2:
                 print("EXTREME GAUCHE")
                 self.state_slide = EtatSlide.EXTREME_LEFT
+                self.y_direction = - self.y_direction
                 self.slideObstacle()
             else:
                 pass
@@ -180,18 +186,19 @@ class Robot:
     # Measure distance
     #
     def sub_data_handler(self, distance):
-        print("Distance", distance[0])
+        #print("Distance", distance[0])
         self.sensor_val = distance[0]
 
     def sub_data_drivespeed(self, distance):
-        print("driveSpeed:", distance[0])
+        #print("driveSpeed:", distance[0])
         self.sensor_val = distance[0]
         if self.sensor_val < 500:
             self.move_speed(x=0)
+            self.slideSide()
             self.slideObstacle(y=1)
 
     def sub_data_slidespeed(self, distance):
-        print("slideSpeed:", distance[0])
+        #print("slideSpeed:", distance[0])
         self.sensor_val = distance[0]
         if self.sensor_val > 700:
             self.move_speed(x=0)
@@ -200,3 +207,12 @@ class Robot:
     def measure_distance(self):
         current_sensor_val = self.sensor_val
         return current_sensor_val
+
+    def slideSide(self):
+        if abs(self.y_pos) <= self.y_max_distance/2 :
+            self.y_direction = 1 #to the right
+        else :
+            self.y_direction = -1#to the left
+
+        print("sliding to ", self.y_direction, " current y", abs(self.y_pos))
+

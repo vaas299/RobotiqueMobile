@@ -7,7 +7,6 @@ if __name__ == '__main__':
     r.init()
     # print(r.detect_object())
     r.goToObstacle(x=1)
-    time.sleep(2)
     # r.move_distance(x=-1, speed=1)
-    time.sleep(11.5)
+    time.sleep(60)
     # r.close()
